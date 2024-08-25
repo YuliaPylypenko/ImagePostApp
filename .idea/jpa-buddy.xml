@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="JpaBuddyIdeaProjectConfig">
+    <option name="defaultUnitInitialized" value="true" />
+    <option name="renamerInitialized" value="true" />
+    <option name="sourceModelValue" value="Default" />
+    <option name="targetDbValue" value="727a9fa4-3b6c-4da5-8905-eb239cea276e" />
+    <option name="isSnapshotDb" value="false" />
+    <option name="snapshotDbValue" value="727a9fa4-3b6c-4da5-8905-eb239cea276e" />
+    <option name="snapshotModelValue" value="Default" />
+    <option name="updateChangeLogPath" value="BlogWebSite/src/main/resources/db/changelog/2024/04/master-changelog.yaml" />
+    <option name="updateDbConnectionName" value="727a9fa4-3b6c-4da5-8905-eb239cea276e" />
+    <option name="liquibaseAuthor" value="" />
+  </component>
+</project>
