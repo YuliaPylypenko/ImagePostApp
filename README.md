@@ -42,4 +42,7 @@ To run the project locally:
 
 Open your web browser and go to http://localhost:8080 to see the application in action.
 
+## 📬 ** Contact**
+For any questions or feedback, please reach out to me at yuliia.pylypenko.collab@gmail.com
+
 
