@@ -27,7 +27,7 @@ The project is continually evolving with new ideas and improvements. Currently, 
 
 ## 📜 **Disclaimer**
 
-This is not a project of the year—it's a personal project reflecting my learning journey and enthusiasm for Java development. Your understanding and feedback are greatly appreciated!
+This project —it's a personal project reflecting my learning journey and enthusiasm for Java development. Your understanding and feedback are greatly appreciated!
 
 ## 🏁 **Getting Started**
 
