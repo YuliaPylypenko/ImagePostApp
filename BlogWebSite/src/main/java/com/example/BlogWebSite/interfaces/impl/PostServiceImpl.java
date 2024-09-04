@@ -1,9 +1,12 @@
 package com.example.BlogWebSite.interfaces.impl;
 
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.elasticsearch.core.SearchResponse;
 import com.example.BlogWebSite.constant.ErrorMessage;
 import com.example.BlogWebSite.exeption.exceptions.LowRoleLevelException;
-import com.example.BlogWebSite.exeption.exceptions.NotSavedException;
 import com.example.BlogWebSite.exeption.exceptions.NotFoundException;
+import com.example.BlogWebSite.exeption.exceptions.NotSavedException;
 import com.example.BlogWebSite.exeption.exceptions.UnsupportedSortException;
 import com.example.BlogWebSite.interfaces.FileService;
 import com.example.BlogWebSite.interfaces.PostService;
@@ -12,13 +15,9 @@ import com.example.BlogWebSite.model.Role;
 import com.example.BlogWebSite.model.User;
 import com.example.BlogWebSite.model.dto.*;
 import com.example.BlogWebSite.repo.PostRepo;
-import com.example.BlogWebSite.repo.PostSearchRepo;
 import com.example.BlogWebSite.repo.UserRepo;
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.hibernate.search.engine.search.query.SearchResult;
-import org.hibernate.service.spi.ServiceException;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -26,10 +25,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -39,13 +38,10 @@ import java.util.stream.Collectors;
 public class PostServiceImpl implements PostService {
 
     private final PostRepo postRepo;
-    private final PostSearchRepo postSearchRepo;
     private final UserRepo userRepo;
     private final ModelMapper modelMapper;
     private final FileService fileService;
-
-    private static final Logger logger = LogManager.getLogger(PostService.class);
-
+    private final ElasticsearchClient client;
 
     @Override
     public PostDto save(AddPostDtoRequest addPostDtoRequest, MultipartFile[] images, Long authorId) {
@@ -196,29 +192,45 @@ public class PostServiceImpl implements PostService {
 
     @Override
     public PageableDto<SearchPostDto> searchPostsByTitle(Pageable pageable, String searchText) {
-        try {
-            SearchResult<Post> searchResult = postSearchRepo.searchByTitle(searchText, pageable);
-            List<SearchPostDto> dtoList = searchResult.hits().stream()
-                    .map(post -> new SearchPostDto(
-                            post.getId(),
-                            post.getTitle(),
-                            modelMapper.map(post.getAuthor(), PostAuthorDto.class),
-                            post.getCreatedAt()))
-                    .collect(Collectors.toList());
+        SearchRequest searchRequest = new SearchRequest.Builder()
+                .index("post-000002")
+                .query(q -> q
+                        .match(m -> m
+                                .field("title")
+                                .query(searchText)
+                        )
+                )
+                .from((int) pageable.getOffset())
+                .size(pageable.getPageSize())
+                .build();
 
-            return new PageableDto<>(
-                    dtoList,
-                    searchResult.total().hitCount(),
-                    pageable.getPageNumber(),
-                    (int) Math.ceil((double) searchResult.total().hitCount() / pageable.getPageSize())
-            );
-        } catch (HttpClientErrorException | HttpServerErrorException e) {
-            logger.error("HTTP error occurred during search: {}", e.getMessage(), e);
-            throw new ServiceException("Ошибка при выполнении запроса к поисковому серверу", e);
-        } catch (Exception e) {
-            logger.error("Unexpected error occurred during search: {}", e.getMessage(), e);
-            throw new ServiceException("Неизвестная ошибка при выполнении поиска", e);
+        SearchResponse<JsonNode> searchResponse;
+        try {
+            searchResponse = client.search(searchRequest, JsonNode.class);
+        } catch (IOException e) {
+            throw new RuntimeException("Error executing search request", e);
         }
+
+        List<SearchPostDto> dtoList = searchResponse.hits().hits().stream()
+                .map(hit -> {
+                    assert hit.source() != null;
+                    return new SearchPostDto(
+                            Long.parseLong(hit.source().get("id").asText()),
+                            hit.source().get("title").asText(),
+                            new PostAuthorDto(hit.source().get("userName").asText()),
+                            ZonedDateTime.parse(hit.source().get("createdAt").asText())
+                    );
+                })
+                .collect(Collectors.toList());
+
+        long totalHits = searchResponse.hits().total() != null ? searchResponse.hits().total().value() : 0;
+
+        return new PageableDto<>(
+                dtoList,
+                totalHits,
+                pageable.getPageNumber(),
+                (int) Math.ceil((double) totalHits / pageable.getPageSize())
+        );
     }
 
     @Override

@@ -1,15 +1,10 @@
 package com.example.BlogWebSite.controllers;
 
-import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import co.elastic.clients.elasticsearch.core.SearchRequest;
-import co.elastic.clients.elasticsearch.core.SearchResponse;
-import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.example.BlogWebSite.annotations.ApiPageable;
 import com.example.BlogWebSite.annotations.CurrentUser;
 import com.example.BlogWebSite.constant.HttpStatuses;
 import com.example.BlogWebSite.interfaces.PostService;
 import com.example.BlogWebSite.model.dto.*;
-import com.fasterxml.jackson.databind.JsonNode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -20,6 +15,7 @@ import jakarta.validation.Valid;
 import lombok.extern.log4j.Log4j2;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.hibernate.service.spi.ServiceException;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -29,12 +25,8 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.time.ZonedDateTime;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Validated
 @RestController
@@ -44,14 +36,11 @@ import java.util.stream.Collectors;
 public class PostController {
 
     private final PostService postService;
-    private final ElasticsearchClient client;
-
 
     private static final Logger logger = LogManager.getLogger(PostController.class);
 
-    public PostController(PostService postService, ElasticsearchClient client) {
+    public PostController(PostService postService) {
         this.postService = postService;
-        this.client = client;
     }
 
     /**
@@ -173,43 +162,13 @@ public class PostController {
     public ResponseEntity<PageableDto<SearchPostDto>> searchPosts(@RequestParam String searchQuery, Pageable pageable) {
         logger.debug("Received search query: {}", searchQuery);
 
-        SearchRequest searchRequest = new SearchRequest.Builder()
-                .index("post-000002")
-                .query(q -> q
-                        .match(m -> m
-                                .field("title")
-                                .query(searchQuery)
-                        )
-                )
-                .build();
-
-        SearchResponse<JsonNode> searchResponse;
         try {
-            searchResponse = client.search(searchRequest, JsonNode.class);
-        } catch (IOException e) {
-            logger.error("Error executing search request", e);
+            PageableDto<SearchPostDto> result = postService.searchPostsByTitle(pageable, searchQuery);
+            return ResponseEntity.ok(result);
+        } catch (ServiceException e) {
+            logger.error("Service exception occurred during search: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
-        List<JsonNode> hits = searchResponse.hits().hits().stream()
-                .map(Hit::source)
-                .toList();
-
-        List<SearchPostDto> dtoList = hits.stream()
-                .map(sourceAsJsonNode -> new SearchPostDto(
-                        Long.parseLong(sourceAsJsonNode.get("id").asText()),
-                        sourceAsJsonNode.get("title").asText(),
-                        new PostAuthorDto(sourceAsJsonNode.get("userName").asText()),
-                        ZonedDateTime.parse(sourceAsJsonNode.get("createdAt").asText())
-                ))
-                .collect(Collectors.toList());
-
-        assert searchResponse.hits().total() != null;
-        return ResponseEntity.ok(new PageableDto<>(
-                dtoList,
-                searchResponse.hits().total().value(),
-                pageable.getPageNumber(),
-                (int) Math.ceil((double) searchResponse.hits().total().value() / pageable.getPageSize())
-        ));
     }
 
     @Operation(description = "Get all posts from users that the current user is subscribed to.")

@@ -13,18 +13,22 @@ import org.springframework.context.annotation.Configuration;
 public class ElasticsearchConfig {
 
     @Bean
-    public ElasticsearchClient elasticsearchClient(){
-        RestClientBuilder builder = RestClient.builder(new HttpHost("172.19.0.3", 9200, "http"))
-                .setRequestConfigCallback(requestConfigBuilder ->
-                        requestConfigBuilder
-                                .setConnectTimeout(10000) // Increase connection timeout
-                                .setSocketTimeout(60000)) // Increase socket timeout
-                .setHttpClientConfigCallback(httpClientBuilder ->
-                        httpClientBuilder.setMaxConnTotal(100) // Max total connections
-                                .setMaxConnPerRoute(10)); // Max connections per route
+    public RestClient restClient() {
+        RestClientBuilder builder = RestClient.builder(new HttpHost("localhost", 9200, "http"))
+                .setRequestConfigCallback(requestConfigBuilder -> requestConfigBuilder
+                        .setConnectTimeout(10000)
+                        .setSocketTimeout(60000))
+                .setHttpClientConfigCallback(httpClientBuilder -> httpClientBuilder
+                        .setMaxConnTotal(100)
+                        .setMaxConnPerRoute(10));
 
+        return builder.build();
+    }
+
+    @Bean
+    public ElasticsearchClient elasticsearchClient() {
         RestClientTransport transport = new RestClientTransport(
-                builder.build(),
+                restClient(),
                 new JacksonJsonpMapper());
 
         return new ElasticsearchClient(transport);

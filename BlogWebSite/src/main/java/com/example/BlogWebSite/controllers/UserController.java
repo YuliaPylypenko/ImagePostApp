@@ -31,6 +31,13 @@ import java.util.Set;
 public class UserController {
     private final UserService userService;
 
+    /**
+     * Retrieves a paginated list of all users.
+     *
+     * @param pageable A `Pageable` object that defines pagination parameters such as page number and page size.
+     * @return ResponseEntity with {@link PageableDto} containing {@link UserVO} objects.
+     */
+
     @Operation(description = "Get all users by page")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "List of users",
@@ -45,6 +52,12 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.OK).body(userService.findByPage(pageable));
     }
 
+    /**
+     * Retrieves all subscriptions of the current user.
+     *
+     * @param user The current user, injected by the `@CurrentUser` annotation.
+     * @return `ResponseEntity` with a `Set` of {@link UserVO} objects representing the user's subscriptions.
+     */
 
     @Operation(description = "Get all subscriptions of the current user.")
     @ApiResponses(value = {
@@ -61,9 +74,10 @@ public class UserController {
     }
 
     /**
-     * Method returns user profile information.
+     * Retrieves the profile information of a user by their ID.
      *
-     * @return {@link UserVO}.
+     * @param userId The ID of the current user. Cannot be empty.
+     * @return `ResponseEntity` with {@link UserVO} representing the user's profile information.
      */
 
     @Operation(description = "Get user profile information by id")
@@ -82,6 +96,14 @@ public class UserController {
                 .status(HttpStatus.OK)
                 .body(userService.getUserProfileInformation(userId));
     }
+
+    /**
+     * Adds a subscription to another user.
+     *
+     * @param currentUser    The current authenticated user, injected by `@AuthenticationPrincipal`.
+     * @param subscriptionId The ID of the user to subscribe to.
+     * @return `ResponseEntity` with {@link UserVO} representing the updated user information after subscribing.
+     */
 
     @Operation(description = "Add subscription.")
     @ApiResponses(value = {@ApiResponse(responseCode = "200", description = HttpStatuses.OK,
@@ -105,6 +127,14 @@ public class UserController {
             throw new IllegalArgumentException("User details does not contain userId");
         }
     }
+
+    /**
+     * Removes a subscription from another user.
+     *
+     * @param currentUser    The current authenticated user, injected by `@AuthenticationPrincipal`.
+     * @param subscriptionId The ID of the user to unsubscribe from.
+     * @return `ResponseEntity` with {@link UserVO} representing the updated user information after unsubscribing.
+     */
 
     @Operation(description = "Remove subscription.")
     @ApiResponses(value = {@ApiResponse(responseCode = "200", description = HttpStatuses.OK,
